@@ -5,7 +5,7 @@ from .connection import Connection, ConnectionInfo
 
 class Pool(object):
 
-    ExcludeDBs = ['template0', 'template1', 'postgres']
+    ExcludeDBs = ['template0', 'template1']
 
     SQL = {
         # query type: ( 'if_not_installed', 'if_installed' )
@@ -20,6 +20,10 @@ class Pool(object):
         'count_xlog_files': (
             "select count(*) from pg_catalog.pg_ls_dir('pg_xlog')",
             'select public.mamonsu_count_xlog_files()'
+        ),
+        'count_wal_files': (
+            "select count(*) from pg_catalog.pg_ls_dir('pg_wal')",
+            'select public.mamonsu_count_wal_files()'
         ),
         'count_autovacuum': (
             """select count(*) from pg_catalog.pg_stat_activity where
@@ -44,7 +48,7 @@ from public.pg_buffercache""",
         self._connections = {}
         self._cache = {
             'server_version': {'storage': {}},
-            'bootstrap': {'storage': {}, 'counter': 0, 'cache': 10},
+            'bootstrap': {'storage': {}, 'counter': 0, 'cache': 10, 'version': False},
             'recovery': {'storage': {}, 'counter': 0, 'cache': 10},
             'pgpro': {'storage': {}},
             'pgproee': {'storage': {}}
@@ -80,6 +84,14 @@ from public.pg_buffercache""",
         db = self._normalize_db(db)
         return self.server_version(db) <= LooseVersion(version)
 
+    def bootstrap_version_greater(self, version):
+        return str(
+            self._cache['bootstrap']['version']) >= LooseVersion(version)
+
+    def bootstrap_version_less(self, version):
+        return str(
+            self._cache['bootstrap']['version']) <= LooseVersion(version)
+
     def in_recovery(self, db=None):
         db = self._normalize_db(db)
         if db in self._cache['recovery']['storage']:
@@ -104,11 +116,20 @@ from public.pg_buffercache""",
         self._cache['bootstrap']['storage'][db] = (result == 1)
         if self._cache['bootstrap']['storage'][db]:
             self._connections[db].log.info('Found mamonsu bootstrap')
+            sql = 'select max(version) from public.mamonsu_config'
+            self._cache['bootstrap']['version'] = self.query(sql, db)[0][0]
         else:
-            self._connections[db].log.info('Can\'t found mamonsu bootstrap')
+            self._connections[db].log.info('Mamonsu bootstrap is not found')
             self._connections[db].log.info(
                 'hint: run `mamonsu bootstrap` if you want to run without superuser rights')
         return self._cache['bootstrap']['storage'][db]
+
+    def is_superuser(self, db=None):
+        db = self._normalize_db(db)
+        if self.query("select current_setting('is_superuser')")[0][0] == 'on':
+            return True
+        else:
+            return False
 
     def is_pgpro(self, db=None):
         db = self._normalize_db(db)
@@ -138,13 +159,15 @@ from public.pg_buffercache""",
 
     def extension_installed(self, ext, db=None):
         db = self._normalize_db(db)
-        result = self.query('select count(*) from pg_catalog.pg_extension\
-            where extname = \'{0}\''.format(ext), db)
+        result = self.query(
+            'select count(*) from pg_catalog.pg_extension '
+            'where extname = \'{0}\''.format(ext), db)
         return (int(result[0][0])) == 1
 
     def databases(self):
-        result, databases = self.query('select datname from \
-            pg_catalog.pg_database'), []
+        result, databases = self.query(
+            'select datname from '
+            'pg_catalog.pg_database'), []
         for row in result:
             if row[0] not in self.ExcludeDBs:
                 databases.append(row[0])

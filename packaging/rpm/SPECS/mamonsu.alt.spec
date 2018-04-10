@@ -1,3 +1,6 @@
+%define _datarootdir %{_prefix}/share
+%{!?python_sitelib: %define python_sitelib %(%{__python} -c "from distutils.sysconfig import get_python_lib; print get_python_lib()")}
+
 Name:           mamonsu
 Version:        2.3.4
 Release:        1%{?dist}
@@ -7,10 +10,10 @@ License:        BSD
 Source0:        http://pypi.python.org/packages/source/m/mamonsu/mamonsu-%{version}.tar.gz
 Source1:        mamonsu.init
 Source2:        mamonsu-logrotate.in
-BuildRequires:  python2-devel
-BuildRequires:  python-setuptools
+BuildRequires:  python-dev
+BuildRequires:  python-module-setuptools
 BuildArch:      noarch
-Requires:       python-setuptools
+Requires:       python-module-setuptools
 
 %description
 Monitoring agent for PostgreSQL.
@@ -70,10 +73,7 @@ chown mamonsu.mamonsu /var/log/mamonsu
 /sbin/chkconfig --del mamonsu
 
 %changelog
-* Thu Feb 15 2018 Grigory Smolkin <g.smolkin@postgrespro.ru> - 2.3.4-1
-- Connections states fix, cfs compression ratio fix
-
-* Tue Dec 12 2017 Grigory Smolkin <g.smolkin@postgrespro.ru> - 2.3.3-1
+* Fri Jan 19 2018 Grigory Smolkin <g.smolkin@postgrespro.ru> - 2.3.3-1
 - PostgreSQL 10 support
 
 * Tue Dec 12 2017 Grigory Smolkin <g.smolkin@postgrespro.ru> - 2.3.2-1

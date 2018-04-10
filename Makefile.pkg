@@ -1,4 +1,14 @@
 TOKEN ?= $(PACKAGECLOUD_TOKEN)
+# Check for SUSE and alt linux which need specific spec file
+ifeq "$(wildcard /etc/SuSE-rel*)" ""
+ifeq "$(wildcard /etc/altlinux-rel*)" ""
+	SPEC=mamonsu.spec
+else
+	SPEC=mamonsu.alt.spec
+endif
+else
+	SPEC=mamonsu.suse.spec
+endif
 
 prepare_builddir: clean
 	mkdir -p build
@@ -14,9 +24,10 @@ deb: prepare_builddir
 	cd $(BUILDDIR) && cp -a $(WORKDIR)/packaging/debian . && dpkg-buildpackage -b
 	cp -av build/mamonsu*.deb .
 
-rpm: prepare_builddir
+rpm: prepare_builddir $(BUILDDIR)/packaging/rpm/SPECS/$(SPEC)
+	mkdir -p $(BUILDDIR)/packaging/rpm/RPMS $(BUILDDIR)/packaging/rpm/BUILD $(BUILDDIR)/packaging/rpm/SRPMS
 	rpmbuild -ba --define '_topdir $(BUILDDIR)/packaging/rpm'\
-		$(BUILDDIR)/packaging/rpm/SPECS/mamonsu.spec
+		$(BUILDDIR)/packaging/rpm/SPECS/$(SPEC)
 	cp -av $(BUILDDIR)/packaging/rpm/RPMS/noarch/mamonsu*.rpm .
 
 pkg: build/prepare build/all
@@ -34,10 +45,10 @@ build/all: build/pkg_debian build/pkg_ubuntu build/pkg_centos
 	@echo Build for all platform: done
 	touch build/all
 
-build/pkg_debian: build/pkg_debian_7 build/pkg_debian_8
+build/pkg_debian: build/pkg_debian_7 build/pkg_debian_8 build/pkg_debian_9
 	@echo Debian: done
 
-build/pkg_ubuntu: build/pkg_ubuntu_14_04 build/pkg_ubuntu_15_10 build/pkg_ubuntu_16_04 build/pkg_ubuntu_16_10
+build/pkg_ubuntu: build/pkg_ubuntu_14_04 build/pkg_ubuntu_16_04 build/pkg_ubuntu_17_10 build/pkg_ubuntu_18_04
 	@echo Ubuntu: done
 
 build/pkg_centos: build/pkg_centos_6 build/pkg_centos_7
@@ -68,21 +79,25 @@ build/pkg_debian_8:
 	$(call build_deb,debian,jessie)
 	touch build/pkg_debian_8
 
+build/pkg_debian_9:
+	$(call build_deb,debian,stretch)
+	touch build/pkg_debian_9
+
 build/pkg_ubuntu_14_04:
 	$(call build_deb,ubuntu,trusty)
 	touch build/pkg_ubuntu_14_04
-
-build/pkg_ubuntu_15_10:
-	$(call build_deb,ubuntu,wily)
-	touch build/pkg_ubuntu_15_10
 
 build/pkg_ubuntu_16_04:
 	$(call build_deb,ubuntu,xenial)
 	touch build/pkg_ubuntu_16_04
 
-build/pkg_ubuntu_16_10:
-	$(call build_deb,ubuntu,yakkety)
-	touch build/pkg_ubuntu_16_10
+build/pkg_ubuntu_17_10:
+	$(call build_deb,ubuntu,artful)
+	touch build/pkg_ubuntu_17_10
+
+build/pkg_ubuntu_18_04:
+	$(call build_deb,ubuntu,bionic)
+	touch build/pkg_ubuntu_18_04
 
 build/pkg_centos_6:
 	$(call build_rpm,centos,6)
